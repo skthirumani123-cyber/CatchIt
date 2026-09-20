@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket Confirmation & QR Scanner — CatchIt{% endblock %}
+{% block page_title %}Ticket Verification Scanner{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 0 auto;">
+    <div class="panel" style="text-align: center; border-top: 4px solid var(--accent-cyan);">
+        <div class="brand-logo-icon" style="margin: 0 auto 16px auto; width: 54px; height: 54px; font-size: 26px;">
+            <i class="bi bi-qr-code-scan"></i>
+        </div>
+        <h2 style="font-size: 22px; margin-bottom: 6px;">Passenger Ticket Verification</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 24px;">
+            Enter booking code or scan passenger travel pass to verify authenticity and confirm boarding.
+        </p>
+
+        <div style="display: flex; gap: 10px; max-width: 480px; margin: 0 auto;">
+            <input type="text" id="scanner_code_input" class="form-control" placeholder="Enter Booking Code (e.g. CI-2026-TKBLR-01)" style="font-family: monospace; font-size: 15px; font-weight: 700; text-transform: uppercase;">
+            <button class="btn btn-primary" onclick="verifyTicketCode()">
+                <i class="bi bi-check2-circle"></i> Verify Ticket
+            </button>
+        </div>
+
+        <div style="display: flex; justify-content: center; gap: 12px; margin-top: 14px;">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('scanner_code_input').value='CI-2026-TKBLR-01'; verifyTicketCode();">
+                <i class="bi bi-lightning-fill"></i> Test Ticket 1 (Skanda - 1A)
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('scanner_code_input').value='CI-2026-TKDBP-02'; verifyTicketCode();">
+                <i class="bi bi-lightning-fill"></i> Test Ticket 2 (Skanda - 2D)
+            </button>
+        </div>
+    </div>
+
+    <!-- Verification Result Box -->
+    <div id="scanner_result_box"></div>
+</div>
+{% endblock %}

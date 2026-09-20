@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}What-If Schedule Simulator — BusFlow{% endblock %}
+{% block page_title %}Fleet Contingency Simulator{% endblock %}
+
+{% block content %}
+<div class="panel" style="border-left: 4px solid var(--accent-cyan);">
+    <div class="panel-header">
+        <div>
+            <div class="panel-title"><i class="bi bi-cpu-fill" style="color: var(--accent-cyan);"></i> Intelligent "What-If" Schedule Contingency Engine</div>
+            <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+                Simulate fleet breakdowns or unexpected bus unavailability to see cascading passenger impacts and auto-generated substitute bus & driver assignments.
+            </p>
+        </div>
+    </div>
+
+    <div style="background: var(--bg-card); padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;">
+        <div class="form-group" style="margin-bottom: 0; min-width: 280px; flex: 1;">
+            <label class="form-label"><i class="bi bi-exclamation-diamond-fill" style="color: #F59E0B;"></i> Select Bus to Simulate as "Unavailable"</label>
+            <select id="whatif_bus_select" class="form-control">
+                {% for b in buses %}
+                    <option value="{{ b.bus_id }}">{{ b.bus_number }} — {{ b.bus_type }} ({{ b.capacity }} seats)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button class="btn btn-primary" onclick="runWhatIfSimulation()" style="height: 44px; padding: 0 24px;">
+            <i class="bi bi-play-circle-fill"></i> Run Simulation
+        </button>
+    </div>
+</div>
+
+<!-- Container for simulation output -->
+<div id="whatif_results">
+    <div class="panel" style="text-align: center; padding: 48px 20px;">
+        <i class="bi bi-diagram-3" style="font-size: 40px; color: var(--text-dim); margin-bottom: 12px; display: block;"></i>
+        <h3 style="font-size: 18px; margin-bottom: 6px;">No Active Simulation Running</h3>
+        <p style="color: var(--text-muted); font-size: 14px; max-width: 500px; margin: 0 auto;">
+            Select a bus above (e.g. <strong>KA01AB1234</strong>) and click <strong>Run Simulation</strong> to compute affected schedules and recommended replacements.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Auto-run simulation on page load for the primary bus KA01AB1234 so it showcases immediately!
+document.addEventListener('DOMContentLoaded', () => {
+    runWhatIfSimulation(1);
+});
+</script>
+{% endblock %}

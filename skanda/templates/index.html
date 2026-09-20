@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}CatchIt — Smart Bus Schedule & Transportation Management System{% endblock %}
+{% block page_title %}Overview{% endblock %}
+
+{% block content %}
+<!-- Hero Section with CatchIt Branding -->
+<div class="landing-hero">
+    <div class="hero-badge">
+        <i class="bi bi-lightning-charge-fill"></i> Next-Gen Transportation Management
+    </div>
+    <h1 class="hero-title">
+        Catch<span>It</span> — Your Journey Our Priority
+    </h1>
+    <p class="hero-lead">
+        <strong>Book Prime Seats. Track Real-Time. Travel Confidently.</strong><br>
+        CatchIt is an intelligent transit scheduling, live fleet tracking, and digital ticketing network connecting Tumkur and Karnataka highway corridors.
+    </p>
+
+    <!-- Quick Route Search Widget with Date Picker -->
+    <div class="hero-search-card">
+        <h3 style="font-size: 16px; margin-bottom: 16px; text-align: left; color: var(--primary-light);">
+            <i class="bi bi-search"></i> Select Origin, Destination & Date
+        </h3>
+        <div style="display: grid; grid-template-columns: 1.2fr 1.2fr 1fr auto; gap: 14px; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0; text-align: left;">
+                <label class="form-label"><i class="bi bi-geo-alt"></i> Origin City</label>
+                <select id="home_source" class="form-control">
+                    <option value="Tumkur" selected>Tumkur</option>
+                    <option value="Bangalore">Bangalore</option>
+                    <option value="Nagasandra">Nagasandra</option>
+                    <option value="Nelamangala">Nelamangala</option>
+                    <option value="Doddaballapur">Doddaballapur</option>
+                    <option value="Mysore">Mysore</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0; text-align: left;">
+                <label class="form-label"><i class="bi bi-pin-map"></i> Destination</label>
+                <select id="home_dest" class="form-control">
+                    <option value="Bangalore" selected>Bangalore</option>
+                    <option value="Tumkur">Tumkur</option>
+                    <option value="Nagasandra">Nagasandra</option>
+                    <option value="Nelamangala">Nelamangala</option>
+                    <option value="Doddaballapur">Doddaballapur</option>
+                    <option value="Mysore">Mysore</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0; text-align: left;">
+                <label class="form-label"><i class="bi bi-calendar-event"></i> Travel Date</label>
+                <input type="date" id="search_date" class="form-control" value="{{ today_iso }}" min="{{ today_iso }}">
+            </div>
+            <button class="btn btn-primary" style="height: 44px; padding: 0 24px;" onclick="searchBuses('home_source', 'home_dest', 'home_search_results')">
+                <i class="bi bi-search"></i> Find Buses
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Dynamic Search Results Container -->
+<div id="home_search_results" style="max-width: 900px; margin: 24px auto;"></div>
+
+<!-- Available Featured Buses Showcase with Logos -->
+<div style="max-width: 1100px; margin: 40px auto 20px auto;">
+    <h2 style="font-size: 22px; margin-bottom: 20px; text-align: center;">Active High-Frequency Departures Today</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+        {% for f in featured %}
+        <div class="stat-card" style="border-left: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <span class="bus-vehicle-badge"><i class="bi bi-bus-front-fill"></i> {{ f.bus_number }}</span>
+                <span class="badge {% if f.status == 'On Time' %}badge-ontime{% elif f.status == 'Delayed' %}badge-delayed{% else %}badge-cancelled{% endif %}">
+                    <span class="badge-dot"></span> {{ f.status }}
+                </span>
+            </div>
+            <div style="font-size: 16px; font-weight: 800; margin-bottom: 4px; color: var(--text-main);">{{ f.route_name }}</div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+                {{ f.bus_type }} • Departure: <strong>{{ f.departure_time }}</strong> • Arrival: <strong>{{ f.arrival_time }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 10px;">
+                <span style="font-size: 16px; font-weight: 800; color: var(--accent-gold);">₹{{ f.fare }} <small style="font-size: 11px; color: var(--text-dim); font-weight: normal;">/ seat</small></span>
+                <button class="btn btn-secondary btn-sm" onclick="openSeatSelector({{ f.schedule_id }}, '{{ f.bus_number }}', '{{ f.route_name }}', {{ f.fare }}, '{{ today_iso }}')">
+                    <i class="bi bi-grid-3x3-gap"></i> Choose Seats
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Portals Showcase -->
+<div style="max-width: 1100px; margin: 40px auto 20px auto;">
+    <h2 style="font-size: 22px; margin-bottom: 20px; text-align: center;">Choose Your Operational Portal</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+        <div class="panel" style="text-align: center; padding: 32px; border-top: 4px solid var(--accent-cyan);">
+            <div class="stat-icon blue" style="margin: 0 auto 16px auto; width: 56px; height: 56px; font-size: 24px;">
+                <i class="bi bi-person-walking"></i>
+            </div>
+            <h3 style="font-size: 20px; margin-bottom: 8px;">Passenger Portal</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+                Interactive 2x2 seat selection with Most Wanted window seats, complete travel history, and QR digital passes.
+            </p>
+            <a href="{{ url_for('demo_login', role='passenger') }}" class="btn btn-primary btn-sm" style="width: 100%;">
+                <i class="bi bi-box-arrow-in-right"></i> Open Passenger Demo
+            </a>
+        </div>
+
+        <div class="panel" style="text-align: center; padding: 32px; border-top: 4px solid var(--status-ontime);">
+            <div class="stat-icon green" style="margin: 0 auto 16px auto; width: 56px; height: 56px; font-size: 24px;">
+                <i class="bi bi-person-badge-fill"></i>
+            </div>
+            <h3 style="font-size: 20px; margin-bottom: 8px;">Driver Console</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+                Working hours shift tracker, Best Way highway navigation hints, crowd occupancy updater, and QR ticket verification.
+            </p>
+            <a href="{{ url_for('demo_login', role='driver') }}" class="btn btn-primary btn-sm" style="width: 100%;">
+                <i class="bi bi-box-arrow-in-right"></i> Open Driver Demo
+            </a>
+        </div>
+
+        <div class="panel" style="text-align: center; padding: 32px; border-top: 4px solid var(--accent-indigo);">
+            <div class="stat-icon purple" style="margin: 0 auto 16px auto; width: 56px; height: 56px; font-size: 24px;">
+                <i class="bi bi-sliders"></i>
+            </div>
+            <h3 style="font-size: 20px; margin-bottom: 8px;">Control Center (Admin)</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+                Fleet KPIs, What-If contingency simulator, real-time analytics, and 1-click database SQL script exporter.
+            </p>
+            <a href="{{ url_for('demo_login', role='admin') }}" class="btn btn-primary btn-sm" style="width: 100%;">
+                <i class="bi bi-box-arrow-in-right"></i> Open Admin Demo
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Seat Selector -->
+<div id="seatModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+        <div class="modal-header">
+            <div>
+                <h3 class="modal-title"><i class="bi bi-grid-3x3-gap-fill"></i> Select Your Bus Seat</h3>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    <span id="seat_bus_num" class="bus-vehicle-badge" style="padding: 2px 6px; font-size: 10px;">Bus</span>
+                    <span id="seat_route_name">Route</span> • <span id="seat_travel_date">Date</span>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeModal('seatModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="bus_seat_grid_container"></div>
+            <div style="background: var(--bg-card); padding: 14px; border-radius: 10px; margin-top: 18px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color);">
+                <div>
+                    <div style="font-size: 12px; color: var(--text-muted);">Selected Seat</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);" id="selected_seat_code">None</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 12px; color: var(--text-muted);">Total Amount</div>
+                    <div style="font-size: 20px; font-weight: 800; color: var(--accent-gold);" id="selected_seat_fare">₹0</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('seatModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmSeatBooking()">
+                <i class="bi bi-check2-circle"></i> Confirm Seat & Generate Pass
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmed Pass -->
+<div id="ticketPassModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-ticket-perforated"></i> Confirmed Boarding Pass</h3>
+            <button class="modal-close" onclick="closeModal('ticketPassModal');">&times;</button>
+        </div>
+        <div class="modal-body" style="text-align: center;">
+            <div class="ticket-pass">
+                <div style="font-size: 12px; text-transform: uppercase; color: var(--accent-cyan); font-weight: 700; letter-spacing: 1px;">CatchIt Express Transit</div>
+                <h3 style="font-size: 20px; margin: 4px 0 16px 0;" id="pass_name">Passenger</h3>
+                <div class="qr-code-box">
+                    <img id="pass_qr_img" src="" alt="QR Code" style="width: 130px; height: 130px; display: block;">
+                </div>
+                <div style="font-family: monospace; font-size: 16px; font-weight: 800; color: var(--text-main);" id="pass_code">CI-0000</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px;">Scan by Conductor on Boarding</div>
+                <div class="ticket-perforation"></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: left; font-size: 13px;">
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Reserved Seat:</span>
+                        <strong style="color: #F59E0B; font-size: 18px;" id="pass_seat">#1A</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Travel Date:</span>
+                        <strong id="pass_date">Date</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Fare Paid:</span>
+                        <strong style="color: var(--accent-gold);" id="pass_fare">₹140</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Status:</span>
+                        <span class="badge badge-ontime">Confirmed</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="printCurrentSchedule()"><i class="bi bi-printer"></i> Print Pass</button>
+            <button class="btn btn-primary" onclick="closeModal('ticketPassModal');">Done</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

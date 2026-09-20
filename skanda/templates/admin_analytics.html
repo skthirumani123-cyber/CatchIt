@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics & Reports — BusFlow{% endblock %}
+{% block page_title %}Transit Analytics{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <!-- Most Used Routes matching mockup -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title"><i class="bi bi-trophy-fill" style="color: #F59E0B;"></i> Most Used Routes</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 10px;">
+            {% for r in metrics.most_used_routes %}
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
+                    <span><strong>{{ loop.index }}.</strong> {{ r.route_name }}</span>
+                    <strong style="color: var(--accent-cyan);">{{ r.percentage }}%</strong>
+                </div>
+                <div style="background: rgba(255,255,255,0.06); height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div style="background: linear-gradient(90deg, #2563EB, #06B6D4); height: 100%; width: {{ r.percentage * 2.5 }}%; border-radius: 4px;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Bus Utilization Weekly Bar Chart matching mockup -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title"><i class="bi bi-bar-chart-fill" style="color: var(--primary-light);"></i> Fleet Utilization (%)</div>
+        </div>
+        <div style="height: 240px;">
+            <canvas id="utilizationBarChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <!-- Delay Reasons Pie Chart matching mockup -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title"><i class="bi bi-pie-chart-fill" style="color: var(--status-delayed);"></i> Delay Root Causes</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center;">
+            <div style="height: 200px;">
+                <canvas id="delayReasonsPieChart"></canvas>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+                <div><span style="color: #2563EB;">● Traffic:</span> 40%</div>
+                <div><span style="color: #06B6D4;">● Weather:</span> 20%</div>
+                <div><span style="color: #F59E0B;">● Technical:</span> 18%</div>
+                <div><span style="color: #EF4444;">● Road Work:</span> 22%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancellations Stats Card matching mockup -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title"><i class="bi bi-x-octagon-fill" style="color: #EF4444;"></i> Cancellations Log</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px;">
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 20px; text-align: center;">
+                <div style="font-size: 13px; color: #FECACA; text-transform: uppercase;">Total Cancellations</div>
+                <div style="font-size: 36px; font-weight: 800; color: #EF4444; margin: 8px 0;">{{ metrics.cancellations.total }}</div>
+                <div style="font-size: 12px; color: var(--text-dim);">Fleet Reliability: 97.9%</div>
+            </div>
+
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span style="color: var(--text-muted);">This Month:</span>
+                    <strong style="color: #FFFFFF;">{{ metrics.cancellations.this_month }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span style="color: var(--text-muted);">Last Month:</span>
+                    <strong style="color: #FFFFFF;">{{ metrics.cancellations.last_month }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Bus Utilization Bar Chart
+    const barCtx = document.getElementById('utilizationBarChart').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ metrics.utilization.labels | tojson }},
+            datasets: [{
+                label: 'Fleet Utilization %',
+                data: {{ metrics.utilization.rates | tojson }},
+                backgroundColor: '#2563EB',
+                borderRadius: 6,
+                hoverBackgroundColor: '#3B82F6'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#94A3B8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94A3B8' }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Delay Reasons Pie Chart
+    const pieCtx = document.getElementById('delayReasonsPieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ metrics.delay_reasons.labels | tojson }},
+            datasets: [{
+                data: {{ metrics.delay_reasons.percentages | tojson }},
+                backgroundColor: ['#2563EB', '#06B6D4', '#F59E0B', '#EF4444'],
+                borderWidth: 2,
+                borderColor: '#0E1833'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

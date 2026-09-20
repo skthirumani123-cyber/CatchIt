@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account | CatchIt{% endblock %}
+
+{% block content %}
+<div class="auth-layout auth-layout-register">
+    <section class="auth-story">
+        <div class="story-badge"><i class="bi bi-stars"></i> Welcome aboard</div>
+        <div class="story-logo"><span class="catchit-mark"><i class="bi bi-bus-front-fill"></i></span><span>Catch<span>It</span></span></div>
+        <h1>Your next<br><em>good trip.</em></h1>
+        <p>Create one account for smoother planning, digital tickets, and a clearer view of the road ahead.</p>
+        <div class="story-stat"><strong>01</strong><span>Plan your route<br>before you leave.</span></div>
+        <div class="story-stat"><strong>02</strong><span>Keep your tickets<br>in one place.</span></div>
+    </section>
+
+    <section class="auth-form-panel">
+        <div class="auth-form-heading">
+            <span class="eyebrow">Start your journey</span>
+            <h2>Create Your Account</h2>
+            <p>A few details and you are ready to travel or drive with CatchIt.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('register') }}" class="auth-form">
+            <input type="hidden" id="reg_role" name="role" value="passenger">
+            <div class="form-group">
+                <label class="form-label" for="account_role">Account type</label>
+                <select id="account_role" class="form-control" onchange="setRegistrationRole(this.value)">
+                    <option value="passenger">Passenger</option>
+                    <option value="driver">Driver</option>
+                </select>
+                <small class="auth-field-note">Admin accounts are created securely by the system administrator.</small>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label" for="reg_name">Full name</label><input type="text" id="reg_name" name="name" class="form-control" placeholder="Your name" autocomplete="name" required></div>
+                <div class="form-group"><label class="form-label" for="reg_phone">Phone</label><input type="tel" id="reg_phone" name="phone" class="form-control" placeholder="10-digit number" autocomplete="tel"></div>
+            </div>
+            <div class="form-group" id="driver_license_group" hidden><label class="form-label" for="reg_license">Commercial license number</label><input type="text" id="reg_license" name="license_number" class="form-control" placeholder="e.g. KA-123456"></div>
+            <div class="form-group"><label class="form-label" for="reg_email">Email address</label><input type="email" id="reg_email" name="email" class="form-control" placeholder="you@example.com" autocomplete="email" required></div>
+            <div class="form-group"><label class="form-label" for="reg_password">Password</label><input type="password" id="reg_password" name="password" class="form-control" placeholder="Create a password" autocomplete="new-password" required></div>
+            <div class="form-group"><label class="form-label" for="reg_confirm_password">Confirm password</label><input type="password" id="reg_confirm_password" name="confirm_password" class="form-control" placeholder="Repeat your password" autocomplete="new-password" required></div>
+            <button type="submit" class="auth-submit">Create account <i class="bi bi-arrow-up-right"></i></button>
+        </form>
+
+        <p class="auth-switch">Already a member? <a href="{{ url_for('login') }}">Sign in</a></p>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function setRegistrationRole(role) {
+    document.getElementById('reg_role').value = role;
+    document.getElementById('driver_license_group').hidden = role !== 'driver';
+    document.getElementById('reg_license').required = role === 'driver';
+}
+</script>
+{% endblock %}

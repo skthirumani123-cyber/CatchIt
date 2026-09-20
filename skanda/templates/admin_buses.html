@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Bus Fleet Management — BusFlow{% endblock %}
+{% block page_title %}Fleet Management{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" id="bus_filter" class="form-control" placeholder="Search bus number or type..." onkeyup="filterBusTable()">
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addBusModal')">
+            <i class="bi bi-plus-lg"></i> Add New Bus
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table" id="buses_table">
+            <thead>
+                <tr>
+                    <th>Bus No.</th>
+                    <th>Type</th>
+                    <th>Capacity</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bus in buses %}
+                <tr>
+                    <td><strong>{{ bus.bus_number }}</strong></td>
+                    <td>{{ bus.bus_type }}</td>
+                    <td>{{ bus.capacity }} Seats</td>
+                    <td>
+                        {% if bus.status == 'Active' %}
+                            <span class="badge badge-ontime"><span class="badge-dot"></span> Active</span>
+                        {% else %}
+                            <span class="badge badge-delayed"><span class="badge-dot"></span> Maintenance</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="toggleStatus({{ bus.bus_id }}, '{{ 'Maintenance' if bus.status == 'Active' else 'Active' }}')">
+                                <i class="bi bi-arrow-repeat"></i> {{ 'Set Maint' if bus.status == 'Active' else 'Activate' }}
+                            </button>
+                            <button class="btn btn-secondary btn-sm" style="color: #F87171;" onclick="deleteBus({{ bus.bus_id }})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Add Bus -->
+<div id="addBusModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-bus-front"></i> Add New Bus</h3>
+            <button class="modal-close" onclick="closeModal('addBusModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Bus Registration Number</label>
+                <input type="text" id="add_bus_number" class="form-control" placeholder="e.g. KA01XY1234">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Bus Type</label>
+                <select id="add_bus_type" class="form-control">
+                    <option value="AC Sleeper">AC Sleeper</option>
+                    <option value="Volvo Multi-Axle">Volvo Multi-Axle</option>
+                    <option value="Electric AC">Electric AC</option>
+                    <option value="Non-AC Deluxe">Non-AC Deluxe</option>
+                    <option value="Non-AC">Non-AC</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Seating Capacity</label>
+                <input type="number" id="add_bus_capacity" class="form-control" value="45">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Initial Fleet Status</label>
+                <select id="add_bus_status" class="form-control">
+                    <option value="Active">Active</option>
+                    <option value="Maintenance">Maintenance</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('addBusModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddBus()"><i class="bi bi-check-lg"></i> Register Bus</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function filterBusTable() {
+    const input = document.getElementById('bus_filter').value.toLowerCase();
+    const rows = document.querySelectorAll('#buses_table tbody tr');
+    rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(input) ? '' : 'none';
+    });
+}
+
+async function toggleStatus(busId, newStatus) {
+    const resp = await fetch(`/api/buses/${busId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    });
+    const res = await resp.json();
+    if (res.success) {
+        showToast(res.message, 'info');
+        setTimeout(() => window.location.reload(), 600);
+    }
+}
+
+async function deleteBus(busId) {
+    if (!confirm('Are you sure you want to remove this bus from the fleet?')) return;
+    const resp = await fetch(`/api/buses/${busId}`, { method: 'DELETE' });
+    const res = await resp.json();
+    if (res.success) {
+        showToast('Bus removed from fleet.', 'danger');
+        setTimeout(() => window.location.reload(), 600);
+    }
+}
+
+async function submitAddBus() {
+    const busNum = document.getElementById('add_bus_number').value.trim();
+    const type = document.getElementById('add_bus_type').value;
+    const cap = document.getElementById('add_bus_capacity').value;
+    const status = document.getElementById('add_bus_status').value;
+
+    if (!busNum) { alert('Please enter bus number'); return; }
+
+    const resp = await fetch('/api/buses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bus_number: busNum, bus_type: type, capacity: cap, status: status })
+    });
+    const res = await resp.json();
+    if (res.success) {
+        showToast('Bus added successfully!', 'success');
+        setTimeout(() => window.location.reload(), 600);
+    } else {
+        alert(res.message);
+    }
+}
+</script>
+{% endblock %}

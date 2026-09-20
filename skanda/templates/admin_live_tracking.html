@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Live Bus Tracking & Best Way Navigation — CatchIt{% endblock %}
+{% block page_title %}Corridor Tracking & Best Route Guide{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 3fr 1.2fr; gap: 24px; min-height: 620px;">
+    <!-- Map Container -->
+    <div class="panel" style="padding: 0; overflow: hidden; position: relative; display: flex; flex-direction: column;">
+        <div style="padding: 16px 20px; background: var(--bg-surface); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+            <div style="font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                <span class="badge-dot" style="background: #10B981; width: 10px; height: 10px; box-shadow: 0 0 10px #10B981;"></span>
+                Live Corridor: Tumkur — NH48 Expressway — Bangalore
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted);">
+                <span><i class="bi bi-broadcast"></i> GPS Auto-refresh: 10s</span>
+            </div>
+        </div>
+
+        <!-- Leaflet Map Mount -->
+        <div id="trackingMap" style="flex: 1; min-height: 540px; width: 100%; background: #070D1E;"></div>
+    </div>
+
+    <!-- Right: Telemetry & Best Way Route Comparison -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Live Selected Bus Panel -->
+        <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-header" style="margin-bottom: 14px;">
+                <div class="panel-title" style="font-size: 15px;"><i class="bi bi-info-circle"></i> Live Bus Telemetry</div>
+            </div>
+            <div id="selected_bus_details">
+                <div style="text-align: center; padding: 24px 10px; color: var(--text-muted);">
+                    <i class="bi bi-bus-front" style="font-size: 28px; display: block; margin-bottom: 6px;"></i>
+                    Click any bus marker on the map to inspect live speed and next stop.
+                </div>
+            </div>
+        </div>
+
+        <!-- "Best Way" Navigation Recommender -->
+        <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-header" style="margin-bottom: 14px;">
+                <div class="panel-title" style="font-size: 15px;"><i class="bi bi-signpost-2-fill" style="color: #10B981;"></i> Suggested Best Routes</div>
+            </div>
+
+            {% for r in best_routes %}
+            <div class="best-route-card" style="border-color: {{ r.color }};">
+                {% if r.is_recommended %}
+                    <span class="best-way-pill">Best Way 🚀</span>
+                {% endif %}
+                <div style="font-size: 14px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">{{ r.name }}</div>
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">
+                    <span><i class="bi bi-speedometer2"></i> {{ r.distance_km }} km</span>
+                    <span><i class="bi bi-clock-history"></i> <strong>{{ r.estimated_time }}</strong></span>
+                </div>
+                <div style="font-size: 11px; color: var(--text-dim);">
+                    {{ r.highlights }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    initLiveTrackingMap('trackingMap');
+});
+</script>
+{% endblock %}

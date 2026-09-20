@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}Control Center Dashboard — CatchIt{% endblock %}
+{% block page_title %}Transit Control Center{% endblock %}
+
+{% block content %}
+<!-- KPI Stat Grid -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-label">Total Buses</span>
+            <div class="stat-icon blue"><i class="bi bi-bus-front-fill"></i></div>
+        </div>
+        <div class="stat-value">{{ total_buses }}</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-label">Total Routes</span>
+            <div class="stat-icon green"><i class="bi bi-signpost-split-fill"></i></div>
+        </div>
+        <div class="stat-value">{{ total_routes }}</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-label">Total Drivers</span>
+            <div class="stat-icon purple"><i class="bi bi-people-fill"></i></div>
+        </div>
+        <div class="stat-value">{{ total_drivers }}</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-label">Total Schedules</span>
+            <div class="stat-icon orange"><i class="bi bi-clock-history"></i></div>
+        </div>
+        <div class="stat-value">{{ total_schedules }}</div>
+    </div>
+</div>
+
+<!-- Main 2-Column Section: Upcoming Departures & Live Bus Status Donut Chart -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+    <!-- Left: Today's Upcoming Departures -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="bi bi-calendar2-week"></i> Today's Upcoming Departures
+            </div>
+            <a href="{{ url_for('admin_schedules') }}" class="btn btn-secondary btn-sm">View All ({{ total_schedules }})</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Bus No.</th>
+                        <th>Route</th>
+                        <th>Departure Time</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dep in upcoming_departures %}
+                    <tr>
+                        <td>
+                            <span class="bus-vehicle-badge"><i class="bi bi-bus-front-fill"></i> {{ dep.bus_number }}</span>
+                        </td>
+                        <td>{{ dep.route_name }}</td>
+                        <td><span style="font-weight: 700; font-size: 15px;">{{ dep.departure_time }}</span></td>
+                        <td>
+                            {% if dep.status == 'On Time' %}
+                                <span class="badge badge-ontime"><span class="badge-dot"></span> On Time</span>
+                            {% elif dep.status == 'Delayed' %}
+                                <span class="badge badge-delayed"><span class="badge-dot"></span> Delayed ({{ dep.delay_minutes }}m)</span>
+                            {% elif dep.status == 'Cancelled' %}
+                                <span class="badge badge-cancelled"><span class="badge-dot"></span> Cancelled</span>
+                            {% else %}
+                                <span class="badge badge-notstarted"><span class="badge-dot"></span> Not Started</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="openDelayModal({{ dep.schedule_id }}, '{{ dep.bus_number }}', {{ dep.delay_minutes }})">
+                                <i class="bi bi-clock-history"></i> Delay
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Right: Live Bus Status Donut Chart -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="bi bi-pie-chart-fill"></i> Fleet Operation Status
+            </div>
+        </div>
+
+        <div style="position: relative; height: 210px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="statusDonutChart"></canvas>
+            <div style="position: absolute; text-align: center; pointer-events: none;">
+                <div style="font-size: 26px; font-weight: 800; color: var(--text-main);">{{ total_buses }}</div>
+                <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Total Active</div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px; font-size: 13px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #10B981;"></span> On Time
+                </span>
+                <strong>{{ status_counts['On Time'] }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #F59E0B;"></span> Delayed
+                </span>
+                <strong>{{ status_counts['Delayed'] }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #EF4444;"></span> Cancelled
+                </span>
+                <strong>{{ status_counts['Cancelled'] }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: #3B82F6;"></span> Not Started
+                </span>
+                <strong>{{ status_counts['Not Started'] }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title"><i class="bi bi-lightning-charge"></i> Quick Fleet Actions</div>
+    </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="openModal('addBusModal')">
+            <i class="bi bi-plus-circle"></i> Add Bus
+        </button>
+        <button class="btn btn-secondary" onclick="openModal('addRouteModal')">
+            <i class="bi bi-signpost-2"></i> Add Route
+        </button>
+        <a href="{{ url_for('ticket_scanner') }}" class="btn btn-secondary" style="border-color: var(--accent-cyan); color: var(--accent-cyan);">
+            <i class="bi bi-qr-code-scan"></i> Ticket Scanner
+        </a>
+        <a href="{{ url_for('export_sql') }}" class="btn btn-secondary" style="border-color: var(--accent-gold); color: var(--accent-gold);">
+            <i class="bi bi-database-down"></i> Export Database to SQL
+        </a>
+        <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('admin_what_if') }}'" style="border-color: #F59E0B; color: #F59E0B;">
+            <i class="bi bi-cpu"></i> Test What-If Schedule
+        </button>
+    </div>
+</div>
+
+<!-- Modal: Smart Delay Editor -->
+<div id="delayModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-clock-history"></i> Update Bus Schedule Delay</h3>
+            <button class="modal-close" onclick="closeModal('delayModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="modal_schedule_id">
+            <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                <div style="font-size: 15px; font-weight: 700; color: var(--text-main);" id="modal_bus_number">Bus</div>
+                <div style="font-size: 12px; color: var(--accent-cyan);">Smart Delay Engine will automatically recalculate all subsequent stop timings.</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Delay in Minutes</label>
+                <input type="number" id="delay_minutes" class="form-control" value="15" min="0" max="300">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Delay Reason</label>
+                <select id="delay_reason" class="form-control">
+                    <option value="Heavy highway traffic congestion">Heavy highway traffic congestion</option>
+                    <option value="Toll plaza vehicle bottleneck">Toll plaza vehicle bottleneck</option>
+                    <option value="Rain & adverse weather condition">Rain & adverse weather condition</option>
+                    <option value="Road work & flyover diversion">Road work & flyover diversion</option>
+                    <option value="Minor engine/tire inspection">Minor engine/tire inspection</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('delayModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitDelayUpdate(document.getElementById('modal_schedule_id').value)">
+                <i class="bi bi-check-lg"></i> Apply Delay Cascade
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Bus -->
+<div id="addBusModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-bus-front"></i> Add New Bus to Fleet</h3>
+            <button class="modal-close" onclick="closeModal('addBusModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Bus Registration Number</label>
+                <input type="text" id="new_bus_number" class="form-control" placeholder="e.g. KA01AB9999" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Bus Type</label>
+                <select id="new_bus_type" class="form-control">
+                    <option value="AC Sleeper">AC Sleeper</option>
+                    <option value="Volvo Multi-Axle">Volvo Multi-Axle</option>
+                    <option value="Electric AC">Electric AC</option>
+                    <option value="Non-AC Deluxe">Non-AC Deluxe</option>
+                    <option value="Non-AC Ordinary">Non-AC Ordinary</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Seating Capacity</label>
+                <input type="number" id="new_bus_capacity" class="form-control" value="45" min="20" max="60">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Initial Status</label>
+                <select id="new_bus_status" class="form-control">
+                    <option value="Active">Active</option>
+                    <option value="Maintenance">Maintenance</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('addBusModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddBus()"><i class="bi bi-plus-lg"></i> Save Bus</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Route -->
+<div id="addRouteModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-signpost-2"></i> Create Transit Route</h3>
+            <button class="modal-close" onclick="closeModal('addRouteModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Route Display Name</label>
+                <input type="text" id="new_route_name" class="form-control" placeholder="e.g. Tumkur - Ramanagara" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Source Origin</label>
+                <input type="text" id="new_route_source" class="form-control" placeholder="e.g. Tumkur" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Destination</label>
+                <input type="text" id="new_route_dest" class="form-control" placeholder="e.g. Ramanagara" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Total Distance (km)</label>
+                <input type="number" id="new_route_distance" class="form-control" value="85" min="5" max="1000">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('addRouteModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddRoute()"><i class="bi bi-plus-lg"></i> Create Route</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const ctx = document.getElementById('statusDonutChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['On Time', 'Delayed', 'Cancelled', 'Not Started'],
+            datasets: [{
+                data: [
+                    {{ status_counts['On Time'] }},
+                    {{ status_counts['Delayed'] }},
+                    {{ status_counts['Cancelled'] }},
+                    {{ status_counts['Not Started'] }}
+                ],
+                backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#3B82F6'],
+                borderWidth: 2,
+                borderColor: '#0E1833'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+});
+
+function openDelayModal(scheduleId, busNum, currentDelay) {
+    document.getElementById('modal_schedule_id').value = scheduleId;
+    document.getElementById('modal_bus_number').innerText = `Bus ${busNum}`;
+    document.getElementById('delay_minutes').value = currentDelay || 15;
+    openModal('delayModal');
+}
+
+async function submitAddBus() {
+    const busNum = document.getElementById('new_bus_number').value.trim();
+    const type = document.getElementById('new_bus_type').value;
+    const cap = document.getElementById('new_bus_capacity').value;
+    const status = document.getElementById('new_bus_status').value;
+
+    if (!busNum) { alert('Please enter bus number'); return; }
+
+    const resp = await fetch('/api/buses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bus_number: busNum, bus_type: type, capacity: cap, status: status })
+    });
+    const res = await resp.json();
+    if (res.success) {
+        showToast('Bus registered to fleet!', 'success');
+        setTimeout(() => window.location.reload(), 800);
+    } else {
+        alert(res.message);
+    }
+}
+
+async function submitAddRoute() {
+    const name = document.getElementById('new_route_name').value.trim();
+    const src = document.getElementById('new_route_source').value.trim();
+    const dst = document.getElementById('new_route_dest').value.trim();
+    const dist = document.getElementById('new_route_distance').value;
+
+    if (!name || !src || !dst) { alert('All fields required'); return; }
+
+    const resp = await fetch('/api/routes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ route_name: name, source: src, destination: dst, distance_km: dist })
+    });
+    const res = await resp.json();
+    if (res.success) {
+        showToast('Route created!', 'success');
+        setTimeout(() => window.location.reload(), 800);
+    } else {
+        alert(res.message);
+    }
+}
+</script>
+{% endblock %}

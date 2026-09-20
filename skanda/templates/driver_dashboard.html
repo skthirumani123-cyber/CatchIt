@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Driver Console — CatchIt{% endblock %}
+{% block page_title %}Driver Operations & Shift Console{% endblock %}
+
+{% block content %}
+<!-- Driver Greeting & Shift Duty Tracker -->
+<div class="panel" style="margin-bottom: 24px; border-left: 4px solid var(--status-ontime);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h2 style="font-size: 24px; margin-bottom: 6px;">Good Morning, {{ current_user.name }} 👋</h2>
+            <div style="font-size: 14px; color: var(--text-muted);">
+                <strong style="color: var(--text-main);">Assigned Bus:</strong> 
+                <span class="bus-vehicle-badge" style="padding: 3px 10px; font-size: 12px;"><i class="bi bi-bus-front-fill"></i> {{ schedule.bus_number if schedule else 'KA01AB1234' }}</span>
+                &nbsp;|&nbsp;
+                <strong style="color: var(--text-main);">Route:</strong> <span style="color: var(--accent-cyan); font-weight: 600;">{{ schedule.route_name if schedule else 'Tumkur ➔ Bangalore' }}</span>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <!-- Shift Duty Toggle -->
+            <button class="btn {% if duty_metrics.is_on_duty %}btn-secondary{% else %}btn-primary{% endif %} btn-sm" onclick="toggleDriverDuty()">
+                <i class="bi {% if duty_metrics.is_on_duty %}bi-pause-circle-fill{% else %}bi-play-circle-fill{% endif %}"></i> 
+                {{ 'End Duty Shift' if duty_metrics.is_on_duty else 'Start Duty Shift' }}
+            </button>
+            <a href="{{ url_for('ticket_scanner') }}" class="btn btn-secondary btn-sm" style="border-color: var(--accent-cyan); color: var(--accent-cyan);">
+                <i class="bi bi-qr-code-scan"></i> Scan Passenger Tickets
+            </a>
+            <button class="btn btn-primary btn-sm" onclick="openModal('occupancyModal')">
+                <i class="bi bi-people-fill"></i> Update Occupancy
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="openModal('delayModal')">
+                <i class="bi bi-clock-history"></i> Report Delay
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Driver Working Hours KPI Row -->
+<div class="stat-grid" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-label">Today's Duty Hours</span>
+            <div class="stat-icon blue"><i class="bi bi-stopwatch-fill"></i></div>
+        </div>
+        <div class="stat-value" style="font-size: 28px; color: var(--primary-light);">{{ duty_metrics.today_hours }} hrs</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            {% if duty_metrics.is_on_duty %}
+                <span style="color: #10B981; font-weight: 600;">● Active on Duty Now</span>
+            {% else %}
+                <span style="color: var(--text-dim);">○ Off Duty / Resting</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-label">This Week's Total</span>
+            <div class="stat-icon purple"><i class="bi bi-calendar-check-fill"></i></div>
+        </div>
+        <div class="stat-value" style="font-size: 28px; color: var(--accent-indigo);">{{ duty_metrics.week_hours }} hrs</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Standard weekly quota: 44 hrs</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-label">Commercial License</span>
+            <div class="stat-icon green"><i class="bi bi-card-text"></i></div>
+        </div>
+        <div class="stat-value" style="font-size: 20px; font-family: monospace; color: var(--text-main); margin-top: 6px;">{{ current_user.license_number or 'KA-123456' }}</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Verified Commercial DL</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 3fr 2fr; gap: 24px; margin-bottom: 24px;">
+    <!-- Left: Today's Stop-by-Stop Schedule with Dynamic Timings -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title"><i class="bi bi-calendar-check"></i> Stop-by-Stop Schedule & Real-Time ETAs</div>
+            {% if schedule and schedule.delay_minutes > 0 %}
+                <span class="badge badge-delayed"><i class="bi bi-clock"></i> +{{ schedule.delay_minutes }}m Smart Cascaded</span>
+            {% else %}
+                <span class="badge badge-ontime"><i class="bi bi-check-circle"></i> On Schedule</span>
+            {% endif %}
+        </div>
+
+        <div class="stop-timeline">
+            {% if schedule and schedule.stops %}
+                {% for st in schedule.stops %}
+                <div class="timeline-item {% if loop.index == 2 %}active{% endif %} {% if st.is_delayed %}delayed{% endif %}">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div>
+                            <div class="timeline-name">{{ st.stop_name }}</div>
+                            <div style="font-size: 11px; color: var(--text-dim);">Stop sequence #{{ st.sequence }} (+{{ st.offset_minutes }} min offset)</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="timeline-time {% if st.is_delayed %}delayed{% endif %}">
+                                {{ st.expected_time }}
+                            </div>
+                            {% if st.is_delayed %}
+                                <div style="font-size: 11px; color: var(--text-dim); text-decoration: line-through;">{{ st.scheduled_time }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-muted);">No active trip schedule found for today.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: Telemetry, Occupancy Gauge, and Route Best Way -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Status & Next Stop Card -->
+        <div class="panel" style="margin-bottom: 0;">
+            <div class="stat-card-header">
+                <span class="stat-label">Trip Status</span>
+                {% if schedule and schedule.status == 'Delayed' %}
+                    <span class="badge badge-delayed"><span class="badge-dot"></span> Delayed</span>
+                {% else %}
+                    <span class="badge badge-ontime"><span class="badge-dot"></span> On Time</span>
+                {% endif %}
+            </div>
+            <div style="margin-top: 8px;">
+                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Next Upcoming Stop</div>
+                <div style="font-size: 20px; font-weight: 800; color: var(--accent-cyan); margin-top: 2px;">
+                    {{ schedule.stops[1].stop_name if schedule and schedule.stops|length > 1 else 'Kyathsandra Toll' }}
+                </div>
+                <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+                    Expected ETA: <strong>{{ schedule.stops[1].expected_time if schedule and schedule.stops|length > 1 else '08:35' }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Occupancy Gauge Card -->
+        <div class="panel" style="margin-bottom: 0; text-align: center; padding: 24px;">
+            <span class="stat-label" style="display: block; margin-bottom: 12px;">Bus Passenger Crowd</span>
+            <div style="width: 70px; height: 70px; border-radius: 50%; background: rgba(37,99,235,0.15); border: 2px dashed var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto; font-size: 28px; color: var(--primary-light);">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div style="font-size: 22px; font-weight: 800; color: var(--text-main);">
+                {{ schedule.occupancy if schedule else 'High' }}
+                {% if schedule and schedule.occupancy == 'High' %}(75%){% elif schedule and schedule.occupancy == 'Medium' %}(50%){% elif schedule and schedule.occupancy == 'Full' %}(100%){% else %}(25%){% endif %}
+            </div>
+            <p style="color: var(--text-muted); font-size: 12px; margin-top: 4px;">Visible to passengers on CatchIt route search</p>
+        </div>
+
+        <!-- Best Way Route Assistant for Driver -->
+        <div class="panel" style="margin-bottom: 0; border: 2px solid #10B981;">
+            {% set best_route = best_way_routes[0] if best_way_routes else none %}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 13px; font-weight: 700; color: #10B981;"><i class="bi bi-signpost-split-fill"></i> Recommended Navigation</span>
+                <span class="badge badge-ontime">{{ best_route.tag if best_route else 'Best Way' }}</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">{{ best_route.name if best_route else 'Route guidance unavailable' }}</div>
+            <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                {% if best_route %}{{ best_route.estimated_time }} ({{ best_route.distance_km }} km). {{ best_route.highlights }}.{% else %}Select an assigned route to load navigation guidance.{% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Driver Update Delay -->
+<div id="delayModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-clock-history"></i> Report Trip Delay</h3>
+            <button class="modal-close" onclick="closeModal('delayModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                <div style="font-weight: 700; color: var(--text-main);">Smart Schedule Recalculation</div>
+                <div style="font-size: 12px; color: var(--text-muted);">Entering delay here will instantly recalculate arrival times for all remaining stops along this corridor.</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Delay Duration (Minutes)</label>
+                <input type="number" id="driver_delay_minutes" class="form-control" value="20" min="0" max="180">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Enroute Delay Reason</label>
+                <select id="driver_delay_reason" class="form-control">
+                    <option value="Heavy traffic near Peenya / Nelamangala toll">Heavy traffic near Peenya / Nelamangala toll</option>
+                    <option value="Severe downpour and reduced visibility">Severe downpour and reduced visibility</option>
+                    <option value="Temporary road diversion / highway maintenance">Temporary road diversion / highway maintenance</option>
+                    <option value="Engine coolant temperature check">Engine coolant temperature check</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('delayModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitDriverDelay({{ schedule.schedule_id if schedule else 1 }})">
+                <i class="bi bi-broadcast"></i> Transmit Delay Update
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Driver Update Occupancy -->
+<div id="occupancyModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-people"></i> Update Bus Occupancy Level</h3>
+            <button class="modal-close" onclick="closeModal('occupancyModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <button class="btn btn-secondary" style="border-color: #10B981; padding: 18px;" onclick="updateOccupancy({{ schedule.schedule_id if schedule else 1 }}, 'Low')">
+                    <i class="bi bi-person-check" style="font-size: 20px; color: #10B981;"></i><br>
+                    <strong>Low (&lt; 30%)</strong>
+                </button>
+                <button class="btn btn-secondary" style="border-color: #3B82F6; padding: 18px;" onclick="updateOccupancy({{ schedule.schedule_id if schedule else 1 }}, 'Medium')">
+                    <i class="bi bi-people" style="font-size: 20px; color: #3B82F6;"></i><br>
+                    <strong>Medium (~ 50%)</strong>
+                </button>
+                <button class="btn btn-secondary" style="border-color: #F59E0B; padding: 18px;" onclick="updateOccupancy({{ schedule.schedule_id if schedule else 1 }}, 'High')">
+                    <i class="bi bi-people-fill" style="font-size: 20px; color: #F59E0B;"></i><br>
+                    <strong>High (~ 75%)</strong>
+                </button>
+                <button class="btn btn-secondary" style="border-color: #EF4444; padding: 18px;" onclick="updateOccupancy({{ schedule.schedule_id if schedule else 1 }}, 'Full')">
+                    <i class="bi bi-person-x-fill" style="font-size: 20px; color: #EF4444;"></i><br>
+                    <strong>Full (100%)</strong>
+                </button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('occupancyModal')">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function submitDriverDelay(scheduleId) {
+    const mins = document.getElementById('driver_delay_minutes').value;
+    const reason = document.getElementById('driver_delay_reason').value;
+
+    const resp = await fetch(`/api/schedules/${scheduleId}/delay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delay_minutes: parseInt(mins), reason: reason })
+    });
+    const res = await resp.json();
+    if (res.success) {
+        closeModal('delayModal');
+        showToast(`Delay broadcasted! Expected stops updated by +${mins} minutes.`, 'warning');
+        setTimeout(() => window.location.reload(), 900);
+    } else {
+        alert(res.message);
+    }
+}
+</script>
+{% endblock %}

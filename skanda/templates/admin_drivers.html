@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Drivers Roster — BusFlow{% endblock %}
+{% block page_title %}Drivers Roster{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title"><i class="bi bi-people-fill"></i> Registered Bus Drivers</div>
+        <span class="badge badge-ontime">{{ drivers|length }} Active Drivers</span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Driver Name</th>
+                    <th>Phone Contact</th>
+                    <th>Commercial License No.</th>
+                    <th>Assigned Trips Today</th>
+                    <th>Duty Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in drivers %}
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="user-avatar" style="width: 28px; height: 28px; font-size: 11px;">{{ d.name[0] }}</div>
+                            <strong>{{ d.name }}</strong>
+                        </div>
+                    </td>
+                    <td><i class="bi bi-telephone" style="color: var(--text-dim);"></i> {{ d.phone or 'N/A' }}</td>
+                    <td><code style="background: rgba(255,255,255,0.06); padding: 4px 8px; border-radius: 4px; color: #93C5FD;">{{ d.license_number or 'KA-202409' }}</code></td>
+                    <td><span style="font-weight: 700;">{{ d.assigned_schedules_count }} trips</span></td>
+                    <td>
+                        {% if d.assigned_schedules_count > 0 %}
+                            <span class="badge badge-ontime"><span class="badge-dot"></span> On Duty</span>
+                        {% else %}
+                            <span class="badge badge-notstarted"><span class="badge-dot"></span> Standby</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

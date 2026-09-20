@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Bus Schedules — BusFlow{% endblock %}
+{% block page_title %}Schedule Management{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" id="sched_filter" class="form-control" placeholder="Search bus, route, or driver..." onkeyup="filterSchedules()">
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addScheduleModal')">
+            <i class="bi bi-plus-lg"></i> Create New Schedule
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table" id="schedules_table">
+            <thead>
+                <tr>
+                    <th>Bus No.</th>
+                    <th>Route</th>
+                    <th>Departure</th>
+                    <th>Arrival</th>
+                    <th>Driver</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in schedules %}
+                <tr>
+                    <td><strong>{{ s.bus_number }}</strong> <small style="color:var(--text-dim);">({{ s.bus_type }})</small></td>
+                    <td>{{ s.route_name }}</td>
+                    <td><strong style="color: #FFFFFF;">{{ s.departure_time }}</strong></td>
+                    <td><strong style="color: #FFFFFF;">{{ s.arrival_time }}</strong></td>
+                    <td><i class="bi bi-person-circle"></i> {{ s.driver_name or 'Unassigned' }}</td>
+                    <td>
+                        {% if s.status == 'On Time' %}
+                            <span class="badge badge-ontime"><span class="badge-dot"></span> On Time</span>
+                        {% elif s.status == 'Delayed' %}
+                            <span class="badge badge-delayed"><span class="badge-dot"></span> Delayed (+{{ s.delay_minutes }}m)</span>
+                        {% elif s.status == 'Cancelled' %}
+                            <span class="badge badge-cancelled"><span class="badge-dot"></span> Cancelled</span>
+                        {% else %}
+                            <span class="badge badge-notstarted"><span class="badge-dot"></span> Not Started</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="openDelayModal({{ s.schedule_id }}, '{{ s.bus_number }}', {{ s.delay_minutes }})">
+                                <i class="bi bi-clock-history"></i> Delay
+                            </button>
+                            <button class="btn btn-secondary btn-sm" style="color: #F87171;" onclick="deleteSchedule({{ s.schedule_id }})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Add Schedule -->
+<div id="addScheduleModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-clock-history"></i> Create New Schedule</h3>
+            <button class="modal-close" onclick="closeModal('addScheduleModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Assign Bus</label>
+                <select id="add_sched_bus" class="form-control">
+                    {% for b in buses %}
+                        <option value="{{ b.bus_id }}">{{ b.bus_number }} ({{ b.bus_type }} - {{ b.capacity }} seats)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Assign Route</label>
+                <select id="add_sched_route" class="form-control">
+                    {% for r in routes %}
+                        <option value="{{ r.route_id }}">{{ r.route_name }} ({{ r.distance_km }} km)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Assign Driver</label>
+                <select id="add_sched_driver" class="form-control">
+                    <option value="">-- Select Driver --</option>
+                    {% for d in drivers %}
+                        <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div class="form-group">
+                    <label class="form-label">Departure Time</label>
+                    <input type="time" id="add_sched_dep" class="form-control" value="08:00">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Arrival Time</label>
+                    <input type="time" id="add_sched_arr" class="form-control" value="10:00">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('addScheduleModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddSchedule()"><i class="bi bi-check-lg"></i> Create Schedule</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Delay Modal -->
+<div id="delayModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-clock-history"></i> Update Delay</h3>
+            <button class="modal-close" onclick="closeModal('delayModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="modal_schedule_id">
+            <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                <div style="font-size: 15px; font-weight: 700; color: #FFFFFF;" id="modal_bus_number">Bus</div>
+                <div style="font-size: 12px; color: var(--accent-cyan);">Calculates updated arrival times at subsequent stops dynamically.</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Delay in Minutes</label>
+                <input type="number" id="delay_minutes" class="form-control" value="20" min="0" max="300">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Reason</label>
+                <input type="text" id="delay_reason" class="form-control" value="Heavy traffic bottleneck">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('delayModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitDelayUpdate(document.getElementById('modal_schedule_id').value)">Apply</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function filterSchedules() {
+    const input = document.getElementById('sched_filter').value.toLowerCase();
+    const rows = document.querySelectorAll('#schedules_table tbody tr');
+    rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(input) ? '' : 'none';
+    });
+}
+
+function openDelayModal(scheduleId, busNum, currentDelay) {
+    document.getElementById('modal_schedule_id').value = scheduleId;
+    document.getElementById('modal_bus_number').innerText = `Bus ${busNum}`;
+    document.getElementById('delay_minutes').value = currentDelay || 15;
+    openModal('delayModal');
+}
+
+async function deleteSchedule(schedId) {
+    if (!confirm('Are you sure you want to remove this schedule?')) return;
+    const resp = await fetch(`/api/schedules/${schedId}`, { method: 'DELETE' });
+    const res = await resp.json();
+    if (res.success) {
+        showToast('Schedule deleted.', 'danger');
+        setTimeout(() => window.location.reload(), 600);
+    }
+}
+
+async function submitAddSchedule() {
+    const bus = document.getElementById('add_sched_bus').value;
+    const route = document.getElementById('add_sched_route').value;
+    const driver = document.getElementById('add_sched_driver').value;
+    const dep = document.getElementById('add_sched_dep').value;
+    const arr = document.getElementById('add_sched_arr').value;
+
+    const resp = await fetch('/api/schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bus_id: bus, route_id: route, driver_id: driver, departure_time: dep, arrival_time: arr })
+    });
+    const res = await resp.json();
+    if (res.success) {
+        showToast('Schedule created!', 'success');
+        setTimeout(() => window.location.reload(), 600);
+    } else {
+        alert(res.message);
+    }
+}
+</script>
+{% endblock %}

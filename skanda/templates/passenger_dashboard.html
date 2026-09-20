@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Passenger Portal — CatchIt{% endblock %}
+{% block page_title %}Passenger Travel Portal{% endblock %}
+
+{% block content %}
+<!-- Greeting Banner -->
+<div class="panel" style="margin-bottom: 24px; border-left: 4px solid var(--primary-light);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h2 style="font-size: 24px; margin-bottom: 4px;">Welcome, {{ current_user.name }} 👋</h2>
+            <p style="color: var(--text-muted); font-size: 14px;">Select destination, pick prime seats, reserve travel passes, and track your buses.</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary btn-sm" onclick="printCurrentSchedule()">
+                <i class="bi bi-printer"></i> Print Schedule
+            </button>
+            <a href="{{ url_for('admin_live_tracking') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-broadcast"></i> Live Corridor Map
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Plan Your Journey Route Planner with Date & Destination Selection -->
+<div class="panel" style="margin-bottom: 28px;">
+    <div class="panel-header">
+        <div class="panel-title"><i class="bi bi-compass-fill" style="color: var(--accent-cyan);"></i> Plan Your Journey & Select Seat</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label"><i class="bi bi-geo-alt"></i> Origin Station</label>
+            <select id="passenger_source" class="form-control">
+                {% for c in cities %}
+                    <option value="{{ c }}" {% if c == 'Tumkur' %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label"><i class="bi bi-pin-map"></i> Destination Station</label>
+            <select id="passenger_dest" class="form-control">
+                {% for c in cities %}
+                    <option value="{{ c }}" {% if c == 'Bangalore' %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label"><i class="bi bi-calendar-event"></i> Travel Date</label>
+            <input type="date" id="search_date" class="form-control" value="{{ today_iso }}" min="{{ today_iso }}">
+        </div>
+
+        <button class="btn btn-primary" style="height: 44px; padding: 0 24px;" onclick="searchBuses('passenger_source', 'passenger_dest', 'passenger_search_results')">
+            <i class="bi bi-search"></i> Search Buses
+        </button>
+    </div>
+</div>
+
+<!-- Dynamic Search Results -->
+<div id="passenger_search_results" style="margin-bottom: 28px;"></div>
+
+<!-- Destination map and best-way preview -->
+<div class="panel" style="margin-bottom: 28px;">
+    <div class="panel-header">
+        <div class="panel-title"><i class="bi bi-map" style="color: var(--accent-cyan);"></i> Destination Map & Best Way</div>
+        <button class="btn btn-secondary btn-sm" onclick="showPlannerRoute('passenger_source', 'passenger_dest', 'plannerMap', 'plannerRouteSummary')">
+            <i class="bi bi-signpost-split"></i> Update Route
+        </button>
+    </div>
+    <div id="plannerMap" class="planner-map" aria-label="Selected route map"></div>
+    <div id="plannerRouteSummary" class="route-summary">Choose your origin and destination to see the recommended route.</div>
+</div>
+
+<!-- Favourite Routes Cards -->
+<div style="margin-bottom: 28px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 18px;"><i class="bi bi-star-fill" style="color: #F59E0B;"></i> Favourite Express Routes</h3>
+        <span style="font-size: 13px; color: var(--text-muted);">Instant 1-Click Search</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;">
+        {% for fav in favourite_routes %}
+        <div class="stat-card" style="cursor: pointer;" onclick="quickSearch('{{ fav.source }}', '{{ fav.destination }}')">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <div style="font-size: 16px; font-weight: 800; color: var(--text-main);">{{ fav.route_name }}</div>
+                <span class="badge badge-ontime"><i class="bi bi-check2"></i> {{ fav.bus_count }} Buses</span>
+            </div>
+            <div style="display: flex; gap: 16px; font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+                <span><i class="bi bi-signpost-split"></i> {{ fav.distance }}</span>
+                <span><i class="bi bi-stopwatch"></i> {{ fav.duration }}</span>
+                <strong style="color: var(--accent-gold);">{{ fav.fare }}</strong>
+            </div>
+            <div style="font-size: 12px; color: var(--accent-cyan); font-weight: 600;">
+                Click to choose seats ➔
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Complete Passenger Travel History -->
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title"><i class="bi bi-clock-history"></i> Complete Travel History & Reserved Passes</div>
+        <button class="btn btn-secondary btn-sm" onclick="printCurrentSchedule()"><i class="bi bi-printer"></i> Print Summary</button>
+    </div>
+
+    {% if travel_history %}
+    <div class="table-responsive">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Booking Code</th>
+                    <th>Bus & Route</th>
+                    <th>Departure / Arrival</th>
+                    <th>Seat Number</th>
+                    <th>Fare Paid</th>
+                    <th>Travel Date</th>
+                    <th>Boarding Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in travel_history %}
+                <tr>
+                    <td><strong style="color: var(--accent-cyan); font-family: monospace; font-size: 14px;">{{ b.booking_code }}</strong></td>
+                    <td>
+                        <span class="bus-vehicle-badge" style="padding: 2px 8px; font-size: 11px;"><i class="bi bi-bus-front-fill"></i> {{ b.bus_number }}</span><br>
+                        <small style="color: var(--text-muted);">{{ b.route_name }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ b.departure_time }}</strong> ➔ {{ b.arrival_time }}
+                    </td>
+                    <td>
+                        <span class="badge {% if b.seat_number in ['1A', '1D', '2A', '2D', '3A', '3D'] %}badge-delayed{% else %}badge-notstarted{% endif %}" style="font-size: 13px;">
+                            Seat {{ b.seat_number }} {% if b.seat_number in ['1A', '1D', '2A', '2D', '3A', '3D'] %}🔥{% endif %}
+                        </span>
+                    </td>
+                    <td><strong style="color: var(--accent-gold);">₹{{ b.fare_paid }}</strong></td>
+                    <td>{{ b.travel_date }}</td>
+                    <td>
+                        {% if b.status == 'Boarded' %}
+                            <span class="badge badge-ontime"><i class="bi bi-qr-code-scan"></i> Boarded</span>
+                        {% elif b.status == 'Confirmed' %}
+                            <span class="badge badge-notstarted"><span class="badge-dot"></span> Confirmed</span>
+                        {% elif b.status == 'Completed' %}
+                            <span class="badge badge-ontime">Completed</span>
+                        {% else %}
+                            <span class="badge badge-cancelled">{{ b.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="showConfirmedPassModal('{{ b.booking_code }}', '{{ b.seat_number }}', '{{ b.travel_date }}', {{ b.fare_paid }}, '{{ b.passenger_name }}')">
+                            <i class="bi bi-qr-code"></i> View QR Pass
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+        <i class="bi bi-ticket-perforated" style="font-size: 32px; display: block; margin-bottom: 8px;"></i>
+        No past travel records found. Use the route search above to reserve your seat!
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal: Interactive 2x2 Bus Seat Selector with Most Wanted Indicator -->
+<div id="seatModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+        <div class="modal-header">
+            <div>
+                <h3 class="modal-title"><i class="bi bi-grid-3x3-gap-fill"></i> Select Your Bus Seat</h3>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    <span id="seat_bus_num" class="bus-vehicle-badge" style="padding: 2px 6px; font-size: 10px;">Bus</span>
+                    <span id="seat_route_name">Route</span> • <span id="seat_travel_date">Date</span>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeModal('seatModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="booking_passenger_name" value="{{ current_user.name }}">
+            
+            <!-- Coach Seat Grid Mount -->
+            <div id="bus_seat_grid_container"></div>
+
+            <!-- Selected Seat Summary & Total Fare Calculation -->
+            <div style="background: var(--bg-card); padding: 14px; border-radius: 10px; margin-top: 18px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color);">
+                <div>
+                    <div style="font-size: 12px; color: var(--text-muted);">Selected Seat</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);" id="selected_seat_code">None</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 12px; color: var(--text-muted);">Total Amount</div>
+                    <div style="font-size: 20px; font-weight: 800; color: var(--accent-gold);" id="selected_seat_fare">₹0</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('seatModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmSeatBooking()">
+                <i class="bi bi-check2-circle"></i> Confirm Seat & Generate Pass
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmed Digital Pass with QR Code -->
+<div id="ticketPassModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="bi bi-ticket-perforated"></i> Confirmed Digital Boarding Pass</h3>
+            <button class="modal-close" onclick="closeModal('ticketPassModal'); window.location.reload();">&times;</button>
+        </div>
+        <div class="modal-body" style="text-align: center;">
+            <div class="ticket-pass" id="printable_ticket">
+                <div style="font-size: 12px; text-transform: uppercase; color: var(--accent-cyan); font-weight: 700; letter-spacing: 1px;">CatchIt Express Transit</div>
+                <h3 style="font-size: 20px; margin: 4px 0 16px 0;" id="pass_name">Passenger</h3>
+
+                <!-- Scannable QR Code -->
+                <div class="qr-code-box">
+                    <img id="pass_qr_img" src="" alt="QR Code" style="width: 130px; height: 130px; display: block;">
+                </div>
+                <div style="font-family: monospace; font-size: 16px; font-weight: 800; color: var(--text-main);" id="pass_code">CI-0000</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px;">Scan by Conductor on Boarding</div>
+
+                <div class="ticket-perforation"></div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: left; font-size: 13px;">
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Reserved Seat:</span>
+                        <strong style="color: #F59E0B; font-size: 18px;" id="pass_seat">#1A</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Travel Date:</span>
+                        <strong id="pass_date">Date</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Fare Paid:</span>
+                        <strong style="color: var(--accent-gold);" id="pass_fare">₹140</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; font-size: 11px;">Status:</span>
+                        <span class="badge badge-ontime">Confirmed</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="printCurrentSchedule()"><i class="bi bi-printer"></i> Print Pass</button>
+            <button class="btn btn-primary" onclick="closeModal('ticketPassModal'); window.location.reload();">Done</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function quickSearch(src, dst) {
+    document.getElementById('passenger_source').value = src;
+    document.getElementById('passenger_dest').value = dst;
+    searchBuses('passenger_source', 'passenger_dest', 'passenger_search_results');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    quickSearch('Tumkur', 'Bangalore');
+    showPlannerRoute('passenger_source', 'passenger_dest', 'plannerMap', 'plannerRouteSummary');
+});
+</script>
+{% endblock %}

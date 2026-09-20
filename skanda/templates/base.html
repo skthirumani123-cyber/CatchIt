@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CatchIt — Smart Bus Schedule & Management System{% endblock %}</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap Icons CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Custom Control Center Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% if request.endpoint in ['login', 'register'] %}auth-body{% endif %}">
+    <div class="app-container">
+        {% if current_user.id %}
+        <!-- Side Navigation Bar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo-icon">
+                    <i class="bi bi-bus-front-fill"></i>
+                </div>
+                <div>
+                    <div class="brand-title">Catch<span>It</span></div>
+                    <div class="brand-subtitle">Smart Transit Center</div>
+                </div>
+            </div>
+
+            <div class="sidebar-role-badge">
+                <i class="bi bi-shield-lock-fill"></i>
+                <span>{{ current_user.role|title }} Portal</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                {% if current_user.role == 'admin' %}
+                    <a href="{{ url_for('admin_dashboard') }}" class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                    <a href="{{ url_for('admin_buses') }}" class="nav-link {% if request.endpoint == 'admin_buses' %}active{% endif %}">
+                        <i class="bi bi-bus-front"></i> Buses Fleet
+                    </a>
+                    <a href="{{ url_for('admin_routes') }}" class="nav-link {% if request.endpoint == 'admin_routes' %}active{% endif %}">
+                        <i class="bi bi-signpost-2"></i> Routes & Stops
+                    </a>
+                    <a href="{{ url_for('admin_schedules') }}" class="nav-link {% if request.endpoint == 'admin_schedules' %}active{% endif %}">
+                        <i class="bi bi-clock-history"></i> Schedules
+                    </a>
+                    <a href="{{ url_for('admin_drivers') }}" class="nav-link {% if request.endpoint == 'admin_drivers' %}active{% endif %}">
+                        <i class="bi bi-person-badge"></i> Drivers Roster
+                    </a>
+                    <a href="{{ url_for('admin_live_tracking') }}" class="nav-link {% if request.endpoint == 'admin_live_tracking' %}active{% endif %}">
+                        <i class="bi bi-geo-alt-fill"></i> Live Bus Tracking
+                    </a>
+                    <a href="{{ url_for('admin_what_if') }}" class="nav-link {% if request.endpoint == 'admin_what_if' %}active{% endif %}">
+                        <i class="bi bi-cpu-fill"></i> What-If Engine
+                    </a>
+                    <a href="{{ url_for('admin_analytics') }}" class="nav-link {% if request.endpoint == 'admin_analytics' %}active{% endif %}">
+                        <i class="bi bi-bar-chart-line-fill"></i> Analytics & Reports
+                    </a>
+                    <a href="{{ url_for('ticket_scanner') }}" class="nav-link {% if request.endpoint == 'ticket_scanner' %}active{% endif %}">
+                        <i class="bi bi-qr-code-scan"></i> Ticket Scanner
+                    </a>
+                    <a href="{{ url_for('export_sql') }}" class="nav-link" style="color: var(--accent-gold);">
+                        <i class="bi bi-database-down"></i> Export SQL DB
+                    </a>
+                {% elif current_user.role == 'driver' %}
+                    <a href="{{ url_for('driver_dashboard') }}" class="nav-link active">
+                        <i class="bi bi-speedometer2"></i> Driver Console
+                    </a>
+                    <a href="{{ url_for('ticket_scanner') }}" class="nav-link">
+                        <i class="bi bi-qr-code-scan"></i> Ticket Scanner
+                    </a>
+                    <a href="{{ url_for('admin_live_tracking') }}" class="nav-link">
+                        <i class="bi bi-geo-alt-fill"></i> Highway Route Map
+                    </a>
+                {% elif current_user.role == 'passenger' %}
+                    <a href="{{ url_for('passenger_dashboard') }}" class="nav-link active">
+                        <i class="bi bi-compass"></i> Route Planner
+                    </a>
+                    <a href="{{ url_for('admin_live_tracking') }}" class="nav-link">
+                        <i class="bi bi-geo-alt-fill"></i> Live Bus Tracker
+                    </a>
+                {% endif %}
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="{{ url_for('logout') }}" class="nav-link" style="color: #EF4444;">
+                    <i class="bi bi-box-arrow-right" style="color: #EF4444;"></i> Sign Out
+                </a>
+            </div>
+        </aside>
+        {% endif %}
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="topbar {% if request.endpoint in ['login', 'register'] %}auth-topbar{% endif %}">
+                <div class="topbar-left">
+                    {% if request.endpoint in ['login', 'register'] %}
+                        <a class="auth-brand" href="{{ url_for('index') }}" aria-label="CatchIt home">
+                            <span class="catchit-mark"><i class="bi bi-bus-front-fill"></i></span>
+                            <span>Catch<span>It</span></span>
+                        </a>
+                    {% else %}
+                        <h1 class="topbar-title">{% block page_title %}CatchIt{% endblock %}</h1>
+                        <span class="topbar-date"><i class="bi bi-calendar3"></i> {{ today_date }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Dark / Light Mode Switcher -->
+                    <button class="theme-toggle-btn" id="theme_toggle_btn" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+                        <i class="bi bi-sun-fill" style="color: #F59E0B;"></i>
+                    </button>
+
+                    {% if request.endpoint in ['login', 'register'] %}
+                        <span class="auth-topbar-note">Smart travel, simply connected</span>
+                    {% elif current_user.id %}
+                        <div class="user-profile-pill">
+                            <div class="user-avatar">{{ current_user.name[0] }}</div>
+                            <div style="font-size: 13px;">
+                                <div style="font-weight: 700; color: var(--text-main);">{{ current_user.name }}</div>
+                                <div style="font-size: 11px; color: var(--text-dim);">{{ current_user.role|title }}</div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div style="display: flex; gap: 10px;">
+                            <a href="{{ url_for('login') }}" class="btn btn-secondary btn-sm">Sign In</a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </header>
+
+            <div class="page-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="alert-container">
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">
+                                    <i class="bi bi-info-circle"></i>
+                                    <span>{{ message }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
