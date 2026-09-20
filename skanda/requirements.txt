@@ -1,3 +1,6 @@
 flask>=3.0.0
 werkzeug>=3.0.0
 mysql-connector-python>=9.0.0
+gunicorn
+flask-MySQLdb==2.0.0
+Flask-SocketIO=5.3.6
